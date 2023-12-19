@@ -1,10 +1,9 @@
-package com.example.bugtracker.data.data
+package com.example.bugtracker.data.network.models
 
-import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class Project(
+data class NetworkProject(
     val projectID: Int,
     val name: String
 )

@@ -1,9 +1,5 @@
-package com.example.bugtracker.data.data
+package com.example.bugtracker.data.domain
 
-import kotlinx.serialization.SerialName
-import kotlinx.serialization.Serializable
-
-@Serializable
 data class Bug(
     val projectID: Int,
     val bugID: Int,

@@ -1,13 +1,12 @@
-package com.example.bugtracker.data.datasource
+package com.example.bugtracker.data.network.datasource
 
 import android.content.Context
 import com.android.volley.Request
-import com.android.volley.Response
 import com.android.volley.toolbox.JsonArrayRequest
 import com.android.volley.toolbox.JsonObjectRequest
 import com.android.volley.toolbox.StringRequest
 import com.android.volley.toolbox.Volley
-import com.example.bugtracker.data.data.Project
+import com.example.bugtracker.data.network.models.NetworkProject
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -38,14 +37,14 @@ class ProjectDataSource(
      * Gets a list of all the projects
      * @param onProjectsReceived Callback for when projects have been received OR empty array if error
      */
-    fun getProjects(onProjectsReceived: (result: Array<Project>) -> Unit) {
+    fun getProjects(onProjectsReceived: (result: List<NetworkProject>) -> Unit) {
         val req = JsonArrayRequest(Request.Method.GET, "$dbURL/projects", null,
             { response ->
-                val projects = Json.decodeFromString<Array<Project>>(response.toString())
-                onProjectsReceived.invoke(projects)
+                val networkProjects = Json.decodeFromString<List<NetworkProject>>(response.toString())
+                onProjectsReceived.invoke(networkProjects)
             },
             { error ->
-                onProjectsReceived.invoke(arrayOf<Project>())
+                onProjectsReceived.invoke(listOf<NetworkProject>())
             }
         )
 
@@ -58,11 +57,11 @@ class ProjectDataSource(
      * @param projectID ID of project to get
      * @param onProjectReceived Callback for when project has been received OR null if error
      */
-    fun getProject(projectID: Int, onProjectReceived: (result: Project?) -> Unit) {
+    fun getProject(projectID: Int, onProjectReceived: (result: NetworkProject?) -> Unit) {
         val req = JsonObjectRequest(Request.Method.GET, "$dbURL/projects/$projectID", null,
             { response ->
-                val project = Json.decodeFromString<Project>(response.toString())
-                onProjectReceived.invoke(project)
+                val networkProject = Json.decodeFromString<NetworkProject>(response.toString())
+                onProjectReceived.invoke(networkProject)
             },
             { error ->
                 onProjectReceived.invoke(null)
@@ -75,10 +74,10 @@ class ProjectDataSource(
 
     /**
      * Adds a project to the database
-     * @param project Project to add to the database
+     * @param networkProject Project to add to the database
      * @param onResponse Callback for if the request was a success or not
      */
-    fun addProject(project: Project, onResponse: (isSuccess: Boolean) -> Unit) {
+    fun addProject(networkProject: NetworkProject, onResponse: (isSuccess: Boolean) -> Unit) {
         val req = object : StringRequest(Request.Method.POST, "$dbURL/projects",
             {
                 onResponse(true)
@@ -88,7 +87,7 @@ class ProjectDataSource(
             }
         ) {
             override fun getBody(): ByteArray {
-                return Json.encodeToString(project).toByteArray()
+                return Json.encodeToString(networkProject).toByteArray()
             }
         }
 
@@ -99,10 +98,10 @@ class ProjectDataSource(
     /**
      * Replaces the project at the given ID with the project passed in
      * @param projectID ID of project to replace
-     * @param project Project to replace project with given ID
+     * @param networkProject Project to replace project with given ID
      * @param onResponse Callback for if the request was a success or not
      */
-    fun updateProject(projectID: Int, project: Project, onResponse: (isSuccess: Boolean) -> Unit) {
+    fun updateProject(projectID: Int, networkProject: NetworkProject, onResponse: (isSuccess: Boolean) -> Unit) {
         val req = object : StringRequest(Request.Method.PUT, "$dbURL/projects/$projectID",
             {
                 onResponse(true)
@@ -112,7 +111,7 @@ class ProjectDataSource(
             }
         ) {
             override fun getBody(): ByteArray {
-                return Json.encodeToString(project).toByteArray()
+                return Json.encodeToString(networkProject).toByteArray()
             }
         }
 
