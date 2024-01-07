@@ -2,19 +2,19 @@ package com.example.bugtracker.data
 
 import com.example.bugtracker.data.domain.Bug
 import com.example.bugtracker.data.local.dao.BugDao
+import com.example.bugtracker.data.local.models.DatabaseBug
 import com.example.bugtracker.data.local.models.asDomainModel
 import com.example.bugtracker.data.network.datasource.BugDataSource
 import com.example.bugtracker.data.network.models.NetworkBug
 import com.example.bugtracker.data.network.models.asDatabaseModel
 import com.example.bugtracker.data.network.models.asDomainModel
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
 class BugRepository(
-    val bugDao: BugDao,
-    val bugDataSource: BugDataSource
-) {
+    private val bugDao: BugDao,
+    private val bugDataSource: BugDataSource
+) : DBSync<DatabaseBug, NetworkBug, Bug>(bugDao::deleteAll, bugDao::addAll, bugDataSource) {
     companion object {
         @Volatile
         private var instance: BugRepository? = null
@@ -25,27 +25,27 @@ class BugRepository(
             }
     }
 
+    // can also handle where only retrieves from dao, and refreshes on opening the app
     suspend fun getAllBugs(): List<Bug> = withContext(Dispatchers.IO) {
-        var bugs: List<Bug>? = null
+        var bugs: List<Bug> = bugDao.getAll().asDomainModel()
 
-        bugs = bugDao.getAll().asDomainModel()
-
-        if (bugs!!.isEmpty()) {
-            val networkBugs = bugDataSource.getBugs();
+        if (bugs.isEmpty()) {
+            val networkBugs = bugDataSource.getAll();
             bugs = networkBugs.asDomainModel();
-            bugDao.add(networkBugs.asDatabaseModel());
+            bugDao.addAll(networkBugs.asDatabaseModel());
         }
 
-        bugs!!
+        bugs
     }
 
+    // only query dao instead of checking network? Do I want to leave refreshing only up to the caller?
     suspend fun getBug(bugID: Int): Bug? = withContext(Dispatchers.IO) {
         var bug: Bug? = null
 
-        val daoBug = bugDao.getBug(bugID)
+        val daoBug = bugDao.get(bugID)
 
-        if(daoBug == null) {
-            val networkBug = bugDataSource.getBug(bugID)
+        if (daoBug == null) {
+            val networkBug = bugDataSource.get(bugID)
             if(networkBug != null) {
                 bug = networkBug.asDomainModel()
             }
@@ -54,5 +54,26 @@ class BugRepository(
         }
 
         bug
+    }
+
+    // sync with the network database on refresh
+    // first upload local to remote, then grab remote
+    suspend fun addBug(bug: Bug) = withContext(Dispatchers.IO) {
+        bugDao.add(bug.asDatabaseModel())
+        bugDataSource.add(bug.asNetworkModel())
+    }
+
+    suspend fun updateBug(bug: Bug) = withContext(Dispatchers.IO) {
+        bugDao.add(bug.asDatabaseModel())
+        bugDataSource.update(bug.bugID, bug.asNetworkModel())
+    }
+
+    suspend fun deleteBug(bugID: Int) = withContext(Dispatchers.IO) {
+        bugDao.delete(bugID)
+        bugDataSource.delete(bugID)
+    }
+
+    suspend fun deleteAll() = withContext(Dispatchers.IO) {
+        bugDao.deleteAll()
     }
 }

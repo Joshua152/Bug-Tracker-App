@@ -4,6 +4,7 @@ import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import com.example.bugtracker.data.domain.Bug
+import com.example.bugtracker.data.network.models.NetworkBug
 
 @Entity(tableName = "bug")
 data class DatabaseBug(
@@ -20,20 +21,27 @@ data class DatabaseBug(
     val timeAmt: Double,
     @ColumnInfo(name = "complexity")
     val complexity: Double
-)
+) : LocalModelConversion<DatabaseBug, NetworkBug, Bug> {
 
-fun DatabaseBug.asDomainModel(): Bug {
-    return Bug(
-        projectID = projectID,
-        bugID = bugID,
-        title = title,
-        description = description,
-        timeAmt = timeAmt,
-        complexity = complexity
-    )
+    override fun asNetworkModel(): NetworkBug {
+        return NetworkBug(
+            projectID = projectID,
+            bugID = bugID,
+            title = title,
+            description = description,
+            timeAmt = timeAmt,
+            complexity = complexity
+        )
+    }
+
+    override fun asDomainModel(): Bug {
+        return Bug(
+            projectID = projectID,
+            bugID = bugID,
+            title = title,
+            description = description,
+            timeAmt = timeAmt,
+            complexity = complexity
+        )
+    }
 }
-
-fun List<DatabaseBug>.asDomainModel(): List<Bug> {
-    return map { it.asDomainModel() }
-}
-

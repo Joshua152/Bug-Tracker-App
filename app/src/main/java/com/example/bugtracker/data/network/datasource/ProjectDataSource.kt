@@ -1,22 +1,27 @@
 package com.example.bugtracker.data.network.datasource
 
+import android.annotation.SuppressLint
 import android.content.Context
 import com.android.volley.Request
 import com.android.volley.toolbox.JsonArrayRequest
 import com.android.volley.toolbox.JsonObjectRequest
 import com.android.volley.toolbox.StringRequest
 import com.android.volley.toolbox.Volley
+import com.example.bugtracker.data.network.models.NetworkBug
 import com.example.bugtracker.data.network.models.NetworkProject
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlin.coroutines.resume
+import kotlin.coroutines.suspendCoroutine
 
 
 class ProjectDataSource(
     val dbURL: String,
     private val context: Context
-) {
+) : DataSource<NetworkProject> {
     companion object {
+        @SuppressLint("StaticFieldLeak")
         @Volatile
         private var instance: ProjectDataSource? = null
 
@@ -34,17 +39,17 @@ class ProjectDataSource(
     private val queue = Volley.newRequestQueue(context)
 
     /**
-     * Gets a list of all the projects
-     * @param onProjectsReceived Callback for when projects have been received OR empty array if error
+     * Gets a single project at the given id
+     * @param id ID of project to get
      */
-    fun getProjects(onProjectsReceived: (result: List<NetworkProject>) -> Unit) {
-        val req = JsonArrayRequest(Request.Method.GET, "$dbURL/projects", null,
+    override suspend fun get(id: Int) = suspendCoroutine<NetworkProject?> { cont ->
+        val req = JsonObjectRequest(Request.Method.GET, "$dbURL/projects/$id", null,
             { response ->
-                val networkProjects = Json.decodeFromString<List<NetworkProject>>(response.toString())
-                onProjectsReceived.invoke(networkProjects)
+                val networkProject = Json.decodeFromString<NetworkProject>(response.toString())
+                cont.resume(networkProject)
             },
             { error ->
-                onProjectsReceived.invoke(listOf<NetworkProject>())
+                cont.resume(null)
             }
         )
 
@@ -53,18 +58,16 @@ class ProjectDataSource(
     }
 
     /**
-     * Gets a single project at the given id
-     * @param projectID ID of project to get
-     * @param onProjectReceived Callback for when project has been received OR null if error
+     * Gets a list of all the projects
      */
-    fun getProject(projectID: Int, onProjectReceived: (result: NetworkProject?) -> Unit) {
-        val req = JsonObjectRequest(Request.Method.GET, "$dbURL/projects/$projectID", null,
+    override suspend fun getAll() = suspendCoroutine<List<NetworkProject>> { cont ->
+        val req = JsonArrayRequest(Request.Method.GET, "$dbURL/projects", null,
             { response ->
-                val networkProject = Json.decodeFromString<NetworkProject>(response.toString())
-                onProjectReceived.invoke(networkProject)
+                val networkProjects = Json.decodeFromString<List<NetworkProject>>(response.toString())
+                cont.resume(networkProjects)
             },
             { error ->
-                onProjectReceived.invoke(null)
+                cont.resume(listOf<NetworkProject>())
             }
         )
 
@@ -75,15 +78,14 @@ class ProjectDataSource(
     /**
      * Adds a project to the database
      * @param networkProject Project to add to the database
-     * @param onResponse Callback for if the request was a success or not
      */
-    fun addProject(networkProject: NetworkProject, onResponse: (isSuccess: Boolean) -> Unit) {
+    override suspend fun add(vararg networkProject: NetworkProject) = suspendCoroutine<Boolean> { cont ->
         val req = object : StringRequest(Request.Method.POST, "$dbURL/projects",
             {
-                onResponse(true)
+                cont.resume(true)
             },
             {
-                onResponse(false)
+                cont.resume(false)
             }
         ) {
             override fun getBody(): ByteArray {
@@ -96,18 +98,26 @@ class ProjectDataSource(
     }
 
     /**
-     * Replaces the project at the given ID with the project passed in
-     * @param projectID ID of project to replace
-     * @param networkProject Project to replace project with given ID
-     * @param onResponse Callback for if the request was a success or not
+     * Adds a list of projects to the database
+     * @param networkProjects List of projects to add to the database
+     * @return Returns a boolean on if the operation was a success or not
      */
-    fun updateProject(projectID: Int, networkProject: NetworkProject, onResponse: (isSuccess: Boolean) -> Unit) {
-        val req = object : StringRequest(Request.Method.PUT, "$dbURL/projects/$projectID",
+    override suspend fun add(networkProjects: List<NetworkProject>): Boolean {
+        return add(*networkProjects.toTypedArray())
+    }
+
+    /**
+     * Replaces the project at the given ID with the project passed in
+     * @param id ID of project to replace
+     * @param networkProject Project to replace project with given ID
+     */
+    override suspend fun update(id: Int, networkProject: NetworkProject) = suspendCoroutine<Boolean>{ cont ->
+        val req = object : StringRequest(Request.Method.PUT, "$dbURL/projects/$id",
             {
-                onResponse(true)
+                cont.resume(true)
             },
             {
-                onResponse(false)
+                cont.resume(false)
             }
         ) {
             override fun getBody(): ByteArray {
@@ -121,16 +131,15 @@ class ProjectDataSource(
 
     /**
      * Deletes project with the given ID
-     * @param projectID ID of project to delete
-     * @param onResponse Callback for if the request was a success or not
+     * @param id ID of project to delete
      */
-    fun deleteProject(projectID: Int, onResponse: (isSuccess: Boolean) -> Unit) {
-        val req = StringRequest(Request.Method.DELETE, "$dbURL/projects/$projectID",
+    override suspend fun delete(id: Int) = suspendCoroutine<Boolean> { cont ->
+        val req = StringRequest(Request.Method.DELETE, "$dbURL/projects/$id",
             {
-                onResponse(true)
+                cont.resume(true)
             },
             {
-                onResponse(false)
+                cont.resume(false)
             }
         )
 

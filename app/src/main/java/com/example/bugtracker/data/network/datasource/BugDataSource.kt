@@ -1,5 +1,6 @@
 package com.example.bugtracker.data.network.datasource
 
+import android.annotation.SuppressLint
 import android.content.Context
 import com.android.volley.Request
 import com.android.volley.toolbox.JsonArrayRequest
@@ -20,8 +21,9 @@ import kotlin.coroutines.suspendCoroutine
 class BugDataSource(
     val dbURL: String,
     private val context: Context
-) {
+) : DataSource<NetworkBug> {
     companion object {
+        @SuppressLint("StaticFieldLeak")
         @Volatile
         private var instance: BugDataSource? = null
 
@@ -39,18 +41,18 @@ class BugDataSource(
     private val queue = Volley.newRequestQueue(context)
 
     /**
-     * Gets a list of all the bugs
-     * @return List of NetworkBugs from server OR empty if error
+     * Gets a single bug at the given id
+     * @param id ID of the bug to get
+     * @return NetworkBug with the given ID OR null if error
      */
-    suspend fun getBugs() = suspendCoroutine<List<NetworkBug>> { cont ->
-        val req = JsonArrayRequest(
-            Request.Method.GET, "$dbURL/bugs", null,
+    override suspend fun get(id: Int) = suspendCoroutine<NetworkBug?> { cont ->
+        val req = JsonObjectRequest(Request.Method.GET, "$dbURL/bugs/$id", null,
             { response ->
-                val networkBugs = Json.decodeFromString<List<NetworkBug>>(response.toString())
-                cont.resume(networkBugs);
+                val networkBug = Json.decodeFromString<NetworkBug>(response.toString())
+                cont.resume(networkBug)
             },
             { error ->
-                cont.resume(listOf<NetworkBug>());
+                cont.resume(null)
             }
         )
 
@@ -59,18 +61,18 @@ class BugDataSource(
     }
 
     /**
-     * Gets a single bug at the given id
-     * @param bugID ID of the bug to get
-     * @return NetworkBug with the given ID OR null if error
+     * Gets a list of all the bugs
+     * @return List of NetworkBugs from server OR empty if error
      */
-    suspend fun getBug(bugID: Int) = suspendCoroutine<NetworkBug?> { cont ->
-        val req = JsonObjectRequest(Request.Method.GET, "$dbURL/bugs/$bugID", null,
+    override suspend fun getAll() = suspendCoroutine<List<NetworkBug>> { cont ->
+        val req = JsonArrayRequest(
+            Request.Method.GET, "$dbURL/bugs", null,
             { response ->
-                val networkBug = Json.decodeFromString<NetworkBug>(response.toString())
-                cont.resume(networkBug)
+                val networkBugs = Json.decodeFromString<List<NetworkBug>>(response.toString())
+                cont.resume(networkBugs);
             },
             { error ->
-                cont.resume(null)
+                cont.resume(listOf<NetworkBug>());
             }
         )
 
@@ -103,8 +105,41 @@ class BugDataSource(
      * @param networkBug Bug to add to the database
      * @return Returns a boolean for if the operation was a success or not
      */
-    suspend fun addBug(networkBug: NetworkBug) = suspendCoroutine<Boolean> { cont ->
+    override suspend fun add(vararg networkBug: NetworkBug) = suspendCoroutine<Boolean> { cont ->
         val req = object : StringRequest(Request.Method.POST, "$dbURL/bugs",
+            { response ->
+                cont.resume(true)
+            },
+            { error ->
+                cont.resume(false)
+            }
+        ) {
+            override fun getBody(): ByteArray {
+                println(Json.encodeToString(networkBug))
+                return Json.encodeToString(networkBug).toByteArray()
+            }
+        }
+
+        req.setShouldRetryServerErrors(false)
+        queue.add(req)
+    }
+
+    /**
+     * Adds a list of bugs to the database
+     * @param networkBugs List of bugs to add to the database
+     * @return Returns a boolean on if the operation was a success or not
+     */
+    override suspend fun add(networkBugs: List<NetworkBug>): Boolean {
+        return add(*networkBugs.toTypedArray())
+    }
+
+    /**
+     * Replaces the bug at the given ID with the bug passed in
+     * @param id ID of the bug to replace
+     * @param networkBug Bug to replace bug with given ID
+     */
+    override suspend fun update(id: Int, networkBug: NetworkBug) = suspendCoroutine<Boolean> { cont ->
+        val req = object : StringRequest(Request.Method.PUT, "$dbURL/bugs/$id",
             { response ->
                 cont.resume(true)
             },
@@ -122,41 +157,16 @@ class BugDataSource(
     }
 
     /**
-     * Replaces the bug at the given ID with the bug passed in
-     * @param bugID ID of the bug to replace
-     * @param networkBug Bug to replace bug with given ID
-     * @param onResponse Callback for if the request was a success or not
-     */
-    fun updateBug(bugID: Int, networkBug: NetworkBug, onResponse: (isSuccess: Boolean) -> Unit) {
-        val req = object : StringRequest(Request.Method.PUT, "$dbURL/bugs/$bugID",
-            { response ->
-                onResponse(true)
-            },
-            { error ->
-                onResponse(false)
-            }
-        ) {
-            override fun getBody(): ByteArray {
-                return Json.encodeToString(networkBug).toByteArray()
-            }
-        }
-
-        req.setShouldRetryServerErrors(false)
-        queue.add(req)
-    }
-
-    /**
      * Deletes bug with the given ID
-     * @param bugID ID of bug to delete
-     * @param onResponse Callback for if the request was a success or not
+     * @param id ID of bug to delete
      */
-    fun deleteBug(bugID: Int, onResponse: (isSuccess: Boolean) -> Unit) {
-        val req = StringRequest(Request.Method.DELETE, "$dbURL/bugs/$bugID",
+    override suspend fun delete(id: Int) = suspendCoroutine<Boolean> { cont ->
+        val req = StringRequest(Request.Method.DELETE, "$dbURL/bugs/$id",
             {
-                onResponse(true)
+                cont.resume(true)
             },
             {
-                onResponse(false)
+                cont.resume(false)
             }
         )
 

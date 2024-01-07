@@ -12,34 +12,26 @@ data class NetworkBug(
     val description: String,
     val timeAmt: Double,
     val complexity: Double
-)
+) : NetworkModelConversion<NetworkBug, DatabaseBug, Bug> {
+    override fun asDatabaseModel(): DatabaseBug {
+        return DatabaseBug(
+            projectID = projectID,
+            bugID = bugID,
+            title = title,
+            description = description,
+            timeAmt = timeAmt,
+            complexity = complexity
+        )
+    }
 
-fun NetworkBug.asDatabaseModel(): DatabaseBug {
-    return DatabaseBug(
-        projectID = projectID,
-        bugID = bugID,
-        title = title,
-        description = description,
-        timeAmt = timeAmt,
-        complexity = complexity
-    )
-}
-
-fun List<NetworkBug>.asDatabaseModel(): List<DatabaseBug> {
-    return map { it.asDatabaseModel() }
-}
-
-fun NetworkBug.asDomainModel(): Bug {
-    return Bug(
-        projectID = projectID,
-        bugID = bugID,
-        title = title,
-        description = description,
-        timeAmt = timeAmt,
-        complexity = complexity
-    )
-}
-
-fun List<NetworkBug>.asDomainModel(): List<Bug> {
-    return map { it.asDomainModel() }
+    override fun asDomainModel(): Bug {
+        return Bug(
+            projectID = projectID,
+            bugID = bugID,
+            title = title,
+            description = description,
+            timeAmt = timeAmt,
+            complexity = complexity
+        )
+    }
 }
