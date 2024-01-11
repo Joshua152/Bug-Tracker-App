@@ -2,6 +2,7 @@ package com.example.bugtracker.data.network.datasource
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.net.ConnectivityManager
 import com.android.volley.Request
 import com.android.volley.toolbox.JsonArrayRequest
 import com.android.volley.toolbox.JsonObjectRequest
@@ -115,6 +116,11 @@ class BugDataSource(
             }
         ) {
             override fun getBody(): ByteArray {
+                /*
+                TODO: try Json.encodeToString(Json.encodeToString(networkBug)) because that is what
+                will be happening when exeuting from protobuf queue if protofbuf schema inludes the
+                json encoded network bug as a field and another field for the request verba nd url
+                 */
                 println(Json.encodeToString(networkBug))
                 return Json.encodeToString(networkBug).toByteArray()
             }
@@ -162,15 +168,19 @@ class BugDataSource(
      */
     override suspend fun delete(id: Int) = suspendCoroutine<Boolean> { cont ->
         val req = StringRequest(Request.Method.DELETE, "$dbURL/bugs/$id",
-            {
+            { response ->
                 cont.resume(true)
             },
-            {
+            { error ->
                 cont.resume(false)
             }
         )
 
         req.setShouldRetryServerErrors(false)
         queue.add(req)
+    }
+
+    private fun addToQueue(req: StringRequest) {
+
     }
 }

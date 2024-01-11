@@ -1,6 +1,7 @@
 package com.example.bugtracker
 
 import android.os.Bundle
+import android.provider.Settings.Global
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Column
@@ -13,6 +14,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.lifecycle.lifecycleScope
 import androidx.room.Room
 import com.example.bugtracker.data.BugRepository
 import com.example.bugtracker.data.domain.Bug
@@ -21,6 +23,7 @@ import com.example.bugtracker.data.local.dao.BugDao
 import com.example.bugtracker.data.local.models.DatabaseProject
 import com.example.bugtracker.data.network.datasource.BugDataSource
 import com.example.bugtracker.data.network.datasource.ProjectDataSource
+import com.example.bugtracker.networkutils.InternetConnectivity
 import com.example.bugtracker.ui.theme.BugTrackerTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
