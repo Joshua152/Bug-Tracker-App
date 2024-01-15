@@ -1,10 +1,12 @@
 package com.example.bugtracker.networkutils
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
+import com.example.bugtracker.data.network.datasource.BugDataSource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -17,6 +19,21 @@ import java.net.Socket
 class InternetConnectivityObserver(
     private val context: Context
 ) {
+    companion object {
+        @SuppressLint("StaticFieldLeak")
+        @Volatile
+        private var instance: InternetConnectivityObserver? = null
+
+        /**
+         * Gets singleton instance of the InternetConnectivityObserver
+         * @param context The context
+         */
+        fun getInstance(context: Context) =
+            instance ?: synchronized(this) {
+                instance ?: InternetConnectivityObserver(context).also { instance = it }
+            }
+    }
+
     private val onGainObservers: MutableList<() -> Unit> = mutableListOf()
 
     private var lastAvailability: Boolean = false
@@ -65,7 +82,7 @@ class InternetConnectivityObserver(
     }
 
     // TRY LATER TO MAKE IT WORK WITH PING
-    private fun pingSuccessful(): Boolean {
+    fun ping(): Boolean {
         return try {
             val timeoutMs = 1500
             val socket = Socket()

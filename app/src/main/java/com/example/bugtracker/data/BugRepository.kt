@@ -1,5 +1,6 @@
 package com.example.bugtracker.data
 
+import android.content.Context
 import com.example.bugtracker.data.domain.Bug
 import com.example.bugtracker.data.local.dao.BugDao
 import com.example.bugtracker.data.local.models.DatabaseBug
@@ -13,15 +14,16 @@ import kotlinx.coroutines.withContext
 
 class BugRepository(
     private val bugDao: BugDao,
-    private val bugDataSource: BugDataSource
-) : DBSync<DatabaseBug, NetworkBug, Bug>(bugDao::deleteAll, bugDao::addAll, bugDataSource) {
+    private val bugDataSource: BugDataSource,
+    private val context: Context
+) : DBSync<DatabaseBug, NetworkBug, Bug>(bugDao::deleteAll, bugDao::addAll, bugDataSource, context) {
     companion object {
         @Volatile
         private var instance: BugRepository? = null
 
-        fun getInstance(bugDao: BugDao, bugDataSource: BugDataSource) =
+        fun getInstance(bugDao: BugDao, bugDataSource: BugDataSource, context: Context) =
             instance ?: synchronized(this) {
-                instance ?: BugRepository(bugDao, bugDataSource).also { instance = it }
+                instance ?: BugRepository(bugDao, bugDataSource, context).also { instance = it }
             }
     }
 

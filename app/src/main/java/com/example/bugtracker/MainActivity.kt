@@ -23,7 +23,6 @@ import com.example.bugtracker.data.local.dao.BugDao
 import com.example.bugtracker.data.local.models.DatabaseProject
 import com.example.bugtracker.data.network.datasource.BugDataSource
 import com.example.bugtracker.data.network.datasource.ProjectDataSource
-import com.example.bugtracker.networkutils.InternetConnectivity
 import com.example.bugtracker.ui.theme.BugTrackerTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
@@ -51,7 +50,7 @@ class MainActivity : ComponentActivity() {
         val bugDataSource = BugDataSource.getInstance(dbURL, context = applicationContext)
         val projectDataSource = ProjectDataSource.getInstance(dbURL, context = applicationContext)
 
-        bugRepo = BugRepository.getInstance(bugDao!!, bugDataSource)
+        bugRepo = BugRepository.getInstance(bugDao!!, bugDataSource, applicationContext)
 
         println("Init")
 
@@ -135,6 +134,15 @@ fun Buttons(modifier: Modifier = Modifier) {
             }
         ) {
             Text(text="Delete all")
+        }
+        TextButton(
+            onClick = {
+                GlobalScope.launch {
+                    bugRepo!!.sync()
+                }
+            }
+        ) {
+            Text(text="Sync")
         }
     }
 }

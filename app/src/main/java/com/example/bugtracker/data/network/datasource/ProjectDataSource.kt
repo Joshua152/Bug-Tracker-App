@@ -3,12 +3,16 @@ package com.example.bugtracker.data.network.datasource
 import android.annotation.SuppressLint
 import android.content.Context
 import com.android.volley.Request
+import com.android.volley.RequestQueue
 import com.android.volley.toolbox.JsonArrayRequest
 import com.android.volley.toolbox.JsonObjectRequest
 import com.android.volley.toolbox.StringRequest
 import com.android.volley.toolbox.Volley
+import com.example.bugtracker.NetworkRequest
 import com.example.bugtracker.data.network.models.NetworkBug
 import com.example.bugtracker.data.network.models.NetworkProject
+import com.example.bugtracker.data.serializer.networkRequestQueueStore
+import com.example.bugtracker.networkutils.InternetConnectivityObserver
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -18,8 +22,8 @@ import kotlin.coroutines.suspendCoroutine
 
 class ProjectDataSource(
     val dbURL: String,
-    private val context: Context
-) : DataSource<NetworkProject> {
+    val context: Context
+) : DataSource<NetworkProject>() {
     companion object {
         @SuppressLint("StaticFieldLeak")
         @Volatile
@@ -36,8 +40,8 @@ class ProjectDataSource(
             }
     }
 
-    private val queue = Volley.newRequestQueue(context)
-
+    private val volleyRequestQueue: RequestQueue = Volley.newRequestQueue(context)
+    private val connectivity: InternetConnectivityObserver = InternetConnectivityObserver.getInstance(context)
     /**
      * Gets a single project at the given id
      * @param id ID of project to get
@@ -54,7 +58,7 @@ class ProjectDataSource(
         )
 
         req.setShouldRetryServerErrors(false)
-        queue.add(req)
+        volleyRequestQueue.add(req)
     }
 
     /**
@@ -67,34 +71,45 @@ class ProjectDataSource(
                 cont.resume(networkProjects)
             },
             { error ->
-                cont.resume(listOf<NetworkProject>())
+                cont.resume(listOf())
             }
         )
 
         req.setShouldRetryServerErrors(false)
-        queue.add(req)
+        volleyRequestQueue.add(req)
     }
 
     /**
      * Adds a project to the database
      * @param networkProject Project to add to the database
      */
-    override suspend fun add(vararg networkProject: NetworkProject) = suspendCoroutine<Boolean> { cont ->
-        val req = object : StringRequest(Request.Method.POST, "$dbURL/projects",
-            {
-                cont.resume(true)
-            },
-            {
-                cont.resume(false)
-            }
-        ) {
-            override fun getBody(): ByteArray {
-                return Json.encodeToString(networkProject).toByteArray()
-            }
+    override suspend fun add(vararg networkProject: NetworkProject): Boolean {
+        val uri = "$dbURL/projects"
+        val jsonProject = Json.encodeToString(networkProject)
+
+        if (!connectivity.ping()) {
+            addToOfflineQueue(Request.Method.POST, uri, jsonProject)
+
+            return true
         }
 
-        req.setShouldRetryServerErrors(false)
-        queue.add(req)
+        return suspendCoroutine { cont ->
+            val req = object : StringRequest(Request.Method.POST, uri,
+                {
+                    cont.resume(true)
+                },
+                {
+                    cont.resume(false)
+                }
+            ) {
+                override fun getBody(): ByteArray {
+                    return jsonProject.toByteArray()
+                }
+            }
+
+            req.setShouldRetryServerErrors(false)
+            volleyRequestQueue.add(req)
+        }
     }
 
     /**
@@ -111,39 +126,72 @@ class ProjectDataSource(
      * @param id ID of project to replace
      * @param networkProject Project to replace project with given ID
      */
-    override suspend fun update(id: Int, networkProject: NetworkProject) = suspendCoroutine<Boolean>{ cont ->
-        val req = object : StringRequest(Request.Method.PUT, "$dbURL/projects/$id",
-            {
-                cont.resume(true)
-            },
-            {
-                cont.resume(false)
-            }
-        ) {
-            override fun getBody(): ByteArray {
-                return Json.encodeToString(networkProject).toByteArray()
-            }
+    override suspend fun update(id: Int, networkProject: NetworkProject): Boolean {
+        val uri = "$dbURL/projects/$id"
+        val jsonProject = Json.encodeToString(networkProject)
+
+        if (!connectivity.ping()) {
+            addToOfflineQueue(Request.Method.PUT, uri, jsonProject)
+
+            return true
         }
 
-        req.setShouldRetryServerErrors(false)
-        queue.add(req)
+        return suspendCoroutine { cont ->
+            val req = object : StringRequest(Request.Method.PUT, uri,
+                {
+                    cont.resume(true)
+                },
+                {
+                    cont.resume(false)
+                }
+            ) {
+                override fun getBody(): ByteArray {
+                    return jsonProject.toByteArray()
+                }
+            }
+
+            req.setShouldRetryServerErrors(false)
+            volleyRequestQueue.add(req)
+        }
     }
 
     /**
      * Deletes project with the given ID
      * @param id ID of project to delete
      */
-    override suspend fun delete(id: Int) = suspendCoroutine<Boolean> { cont ->
-        val req = StringRequest(Request.Method.DELETE, "$dbURL/projects/$id",
-            {
-                cont.resume(true)
-            },
-            {
-                cont.resume(false)
-            }
-        )
+    override suspend fun delete(id: Int): Boolean {
+        val uri = "$dbURL/projects/$id"
 
-        req.setShouldRetryServerErrors(false)
-        queue.add(req)
+        if (!connectivity.ping()) {
+            addToOfflineQueue(Request.Method.DELETE, uri, null)
+
+            return true
+        }
+
+        return suspendCoroutine { cont ->
+            val req = StringRequest(Request.Method.DELETE, uri,
+                {
+                    cont.resume(true)
+                },
+                {
+                    cont.resume(false)
+                }
+            )
+
+            req.setShouldRetryServerErrors(false)
+            volleyRequestQueue.add(req)
+        }
+    }
+
+    private suspend fun addToOfflineQueue(httpVerb: Int, uri: String, body: String?) {
+        context.networkRequestQueueStore.updateData { currentQueue ->
+            currentQueue.toBuilder()
+                .addNetworkRequest(
+                    NetworkRequest.newBuilder()
+                    .setHttpVerb(httpVerb)
+                    .setUri(uri)
+                    .setBody(body ?: ""))
+                .build()
+        }
     }
 }
