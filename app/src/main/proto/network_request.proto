@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+option java_package = "com.example.bugtracker";
+option java_multiple_files = true;
+
+message NetworkRequest {
+  int32 http_verb = 1;
+  string uri = 2;
+  string body = 3;
+}
+
+message NetworkRequestQueue {
+  repeated NetworkRequest network_request = 1;
+}
