@@ -16,6 +16,8 @@ import java.io.IOException
 import java.net.InetSocketAddress
 import java.net.Socket
 
+// TODO: USE FLOW FOR AN OBSERVER
+
 class InternetConnectivityObserver(
     private val context: Context
 ) {
